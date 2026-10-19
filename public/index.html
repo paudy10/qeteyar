@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111827">
+  <title>قطعه‌یار | انبارداری قطعات موبایل</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div id="loginScreen" class="login-shell hidden">
+    <div class="login-card">
+      <div class="brand-mark large">ق</div>
+      <div class="eyebrow">GHATEH YAR · INVENTORY</div>
+      <h1>ورود به قطعه‌یار</h1>
+      <p class="muted">سامانه مدیریت موجودی و مصرف قطعات تعمیرات موبایل</p>
+      <form id="loginForm" class="form-stack">
+        <label>نام کاربری<input name="username" autocomplete="username" required value="admin"></label>
+        <label>رمز عبور<input name="password" type="password" autocomplete="current-password" required placeholder="رمز عبور را وارد کنید"></label>
+        <button class="btn primary full" type="submit">ورود به پنل <span>←</span></button>
+        <p id="loginError" class="form-error" role="alert"></p>
+      </form>
+      <div class="login-foot">اطلاعات این برنامه روی سرور خودتان ذخیره می‌شود.</div>
+    </div>
+  </div>
+
+  <div id="appShell" class="app-shell hidden">
+    <aside class="sidebar no-print">
+      <div class="brand-block">
+        <div class="brand-mark">ق</div>
+        <div><strong>قطعه‌یار</strong><span>مدیریت هوشمند انبار</span></div>
+      </div>
+      <div class="side-label">منوی اصلی</div>
+      <nav class="main-nav" aria-label="منوی اصلی">
+        <button class="nav-link active" data-view="dashboard"><span class="nav-icon">▦</span><span>نمای کلی</span></button>
+        <button class="nav-link" data-view="products"><span class="nav-icon">▤</span><span>محصولات و موجودی</span></button>
+        <button class="nav-link" data-view="price-search"><span class="nav-icon">⌕</span><span>جست‌وجو و قیمت</span></button>
+        <button class="nav-link" data-view="stockin"><span class="nav-icon">↙</span><span>شارژ انبار</span></button>
+        <button class="nav-link" data-view="sales"><span class="nav-icon">↗</span><span>فروش و مصرف انبار</span></button>
+        <button class="nav-link" data-view="direct"><span class="nav-icon">⇄</span><span>تأمین و مصرف مستقیم</span></button>
+        <button class="nav-link" data-view="people"><span class="nav-icon">♙</span><span>تعمیرکاران و طرف حساب</span></button>
+        <button class="nav-link" data-view="reports"><span class="nav-icon">▥</span><span>گزارش‌ها</span></button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="currency-mini"><span class="pulse-dot"></span><div><small>نرخ دلار بازار آزاد</small><strong id="sidebarRate">در حال دریافت…</strong></div></div>
+        <button id="changePasswordBtn" class="nav-link" type="button" title="تغییر رمز عبور" aria-label="تغییر رمز عبور"><span class="nav-icon">⌑</span><span>تغییر رمز عبور</span></button>
+        <button id="logoutBtn" class="nav-link logout"><span class="nav-icon">⇥</span><span>خروج از حساب</span></button>
+        <div class="version-label">قطعه‌یار <span>نسخه ۱.۱.۲</span></div>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar no-print">
+        <div><div id="topDate" class="top-date"></div><h1 id="pageTitle">نمای کلی</h1></div>
+        <div class="top-actions"><div class="rate-chip"><span class="rate-symbol">$</span><div><small>هر دلار به ریال</small><strong id="topRate">—</strong></div><button id="refreshRateBtn" title="به‌روزرسانی نرخ" aria-label="به‌روزرسانی نرخ">⟳</button></div><div class="user-chip"><span class="avatar">ا</span><div><strong id="currentUser">مدیر</strong><small>مدیر انبار</small></div></div></div>
+      </header>
+
+      <div class="content-wrap">
+        <section id="dashboardView" class="view active">
+          <div class="welcome-row"><div><div class="eyebrow">داشبورد مدیریتی</div><h2>سلام، به انبارت سر و سامان بده.</h2><p class="muted">وضعیت انبار و فعالیت‌های امروز در یک نگاه.</p></div><button class="btn primary" data-goto="stockin">＋ ثبت ورود کالا</button></div>
+          <div id="rateWarning" class="warning-banner hidden"></div>
+          <div class="stats-grid">
+            <article class="stat-card"><div class="stat-top"><span class="stat-label">تعداد محصولات فعال</span><span class="stat-icon lilac">▤</span></div><div id="statProducts" class="stat-value">—</div><div class="stat-foot">محصول در کاتالوگ</div></article>
+            <article class="stat-card"><div class="stat-top"><span class="stat-label">تعداد قطعات موجود</span><span class="stat-icon teal">▦</span></div><div id="statUnits" class="stat-value">—</div><div class="stat-foot">مجموع موجودی انبار</div></article>
+            <article class="stat-card"><div class="stat-top"><span class="stat-label">نیازمند شارژ</span><span class="stat-icon amber">!</span></div><div id="statLow" class="stat-value">—</div><div class="stat-foot">رسیده به حداقل موجودی</div></article>
+            <article class="stat-card"><div class="stat-top"><span class="stat-label">مصرف و فروش امروز</span><span class="stat-icon blue">↗</span></div><div id="statToday" class="stat-value">—</div><div class="stat-foot">مبلغ ثبت‌شده به ریال</div></article>
+          </div>
+          <div class="dashboard-grid">
+            <section class="panel recent-panel"><div class="panel-heading"><div><h3>آخرین فعالیت‌ها</h3><p class="muted">جدیدترین ورودها و مصرف‌های ثبت‌شده</p></div><button class="text-button" data-goto="reports">مشاهده همه ←</button></div><div id="recentMovements" class="recent-list"><div class="empty-state">در حال بارگذاری…</div></div></section>
+            <section class="panel quick-panel"><div class="panel-heading"><div><h3>دسترسی سریع</h3><p class="muted">کارهای پرتکرار انبار</p></div></div><div class="quick-actions"><button data-goto="products" class="quick-action"><span class="quick-icon violet">＋</span><span><strong>تعریف محصول جدید</strong><small>دسته، برند و قیمت ریالی</small></span><b>←</b></button><button data-goto="sales" class="quick-action"><span class="quick-icon green">↗</span><span><strong>ثبت فروش / مصرف</strong><small>با نام تعمیرکار</small></span><b>←</b></button><button data-goto="direct" class="quick-action"><span class="quick-icon orange">⇄</span><span><strong>تأمین و مصرف مستقیم</strong><small>بدون ثبت در موجودی انبار</small></span><b>←</b></button><button data-goto="reports" class="quick-action"><span class="quick-icon blue">▥</span><span><strong>گزارش ترکیبی</strong><small>فیلتر و ذخیره به PDF</small></span><b>←</b></button></div></section>
+          </div>
+          <div class="panel low-stock-panel"><div class="panel-heading"><div><h3>موجودی‌های رو به اتمام</h3><p class="muted">محصولاتی که به حداقل موجودی رسیده‌اند</p></div><button class="text-button" data-goto="products">مدیریت محصولات ←</button></div><div id="lowStockTable" class="table-wrap"><div class="empty-state">در حال بارگذاری…</div></div></div>
+        </section>
+
+        <section id="productsView" class="view">
+          <div class="section-head"><div><div class="eyebrow">کاتالوگ قطعات</div><h2>محصولات و موجودی</h2><p class="muted">تعریف مدل‌های مختلف قطعات، جست‌وجو و مشاهده ارزش ریالی با نرخ روز.</p></div><button id="toggleProductForm" class="btn primary">＋ محصول جدید</button></div>
+          <form id="productForm" class="panel form-panel hidden">
+            <div class="form-panel-head"><div><h3>تعریف محصول</h3><p class="muted">قیمت به ریال وارد می‌شود و معادل دلاری خودکار محاسبه خواهد شد.</p></div><button type="button" class="icon-button" data-close="productForm" aria-label="بستن">×</button></div>
+            <div class="form-grid">
+              <label>نام قطعه *<input name="name" required placeholder="مثلاً ال‌سی‌دی نوت ۱۲ پرو"></label>
+              <label>مدل / سازگاری<input name="model" placeholder="مثلاً Note 12 Pro"></label>
+              <label>دسته‌بندی<select name="category_id" id="productCategory"></select></label>
+              <label>برند<select name="brand_id" id="productBrand"></select></label>
+              <label>نوع کالا *<select name="mode"><option value="stock">کالای انباری</option><option value="direct">مصرف مستقیم / سفارشی</option></select></label>
+              <label>قیمت پایه (ریال) *<input name="default_irr_price" type="number" min="0" step="1" required placeholder="مثلاً ۲۵۰۰۰۰۰"><small id="productPriceUsdPreview" class="field-hint">معادل دلاری با نرخ فعلی نمایش داده می‌شود.</small></label>
+              <label class="stock-only">موجودی اولیه<input name="stock_qty" type="number" min="0" step="0.01" value="0"></label>
+              <label class="stock-only">هشدار حداقل موجودی<input name="min_stock" type="number" min="0" step="0.01" value="2"></label>
+              <label class="span-2">توضیحات<textarea name="details" rows="2" placeholder="کیفیت، نوع پنل یا نکته‌های موردنیاز"></textarea></label>
+            </div>
+            <div class="form-actions"><button type="submit" class="btn primary">ثبت محصول</button><button type="button" class="btn ghost" data-close="productForm">انصراف</button></div>
+          </form>
+          <div class="panel data-panel"><div class="toolbar"><div class="search-box"><span>⌕</span><input id="productSearch" placeholder="جست‌وجوی نام، مدل، دسته یا برند…"></div><div class="toolbar-meta"><span id="productCount">۰ محصول</span><button id="refreshProducts" class="btn ghost small">⟳ بروزرسانی</button></div></div><div id="productsTable" class="table-wrap"><div class="empty-state">در حال بارگذاری…</div></div></div>
+        </section>
+
+        <section id="price-searchView" class="view">
+          <div class="section-head"><div><div class="eyebrow">جست‌وجوی سریع</div><h2>جست‌وجوی محصول و قیمت روز</h2><p class="muted">نام قطعه، مدل، برند یا کد را جست‌وجو کنید؛ ارزش ریالی با نرخ فعلی دلار محاسبه می‌شود.</p></div><button id="priceSearchRefresh" class="btn ghost">⟳ تازه‌سازی فهرست</button></div>
+          <div class="panel data-panel">
+            <div class="toolbar"><div class="search-box price-search-box"><span>⌕</span><input id="priceSearchInput" autocomplete="off" placeholder="مثلاً ال‌سی‌دی نوت ۱۲ پرو، اینسل، سامسونگ…"></div><div class="toolbar-meta"><span id="priceSearchCount">برای شروع جست‌وجو بنویسید</span></div></div>
+            <div id="priceSearchResults" class="table-wrap"><div class="empty-state">جست‌وجوی محصول را شروع کنید.</div></div>
+          </div>
+        </section>
+
+        <section id="stockinView" class="view">
+          <div class="section-head"><div><div class="eyebrow">ورود به انبار</div><h2>شارژ موجودی</h2><p class="muted">ورود تعداد جدید از یک محصول تعریف‌شده به انبار.</p></div><div class="section-icon teal">↙</div></div>
+          <form id="stockInForm" class="panel transaction-panel"><div class="transaction-title"><span class="transaction-icon teal">↙</span><div><h3>ثبت رسید ورود کالا</h3><p class="muted">موجودی محصول پس از ثبت افزایش پیدا می‌کند.</p></div></div><div class="form-grid"><label class="span-2">محصول انباری *<select name="product_id" id="stockProduct" required></select></label><label>تعداد ورودی *<input type="number" name="quantity" min="0.01" step="0.01" required placeholder="مثلاً ۵"></label><label>قیمت خرید هر عدد (ریال)<input type="number" name="irr_unit_price" id="stockPrice" min="0" step="1" placeholder="خالی = قیمت لحظه‌ای محصول"></label><label class="span-2">تأمین‌کننده (اختیاری)<select name="supplier_id" id="stockSupplier"></select></label><label class="span-2">توضیحات<textarea name="note" rows="2" placeholder="شماره فاکتور یا توضیح خرید"></textarea></label></div><div class="transaction-preview" id="stockPreview">ابتدا محصول و قیمت را مشخص کنید.</div><div class="form-actions"><button class="btn primary" type="submit">ثبت شارژ انبار</button></div></form>
+        </section>
+
+        <section id="salesView" class="view">
+          <div class="section-head"><div><div class="eyebrow">خروج از موجودی</div><h2>فروش و مصرف انبار</h2><p class="muted">برای هر خروج، تعمیرکار مسئول را مشخص کنید.</p></div><div class="section-icon blue">↗</div></div>
+          <form id="saleForm" class="panel transaction-panel"><div class="transaction-title"><span class="transaction-icon blue">↗</span><div><h3>ثبت فروش / مصرف قطعه</h3><p class="muted">فقط در صورت موجودی کافی ثبت می‌شود و تعداد از انبار کم خواهد شد.</p></div></div><div class="form-grid"><label class="span-2">محصول *<select name="product_id" id="saleProduct" required></select></label><label>تعداد *<input type="number" name="quantity" min="0.01" step="0.01" required placeholder="تعداد مصرف‌شده"></label><label>قیمت هر عدد هنگام فروش / استفاده (ریال)<input type="number" name="irr_unit_price" id="salePrice" min="0" step="1" placeholder="خالی = قیمت لحظه‌ای محصول"></label><label class="span-2">نام تعمیرکار *<select name="technician_id" id="saleTechnician" required></select></label><label class="span-2">توضیحات<textarea name="note" rows="2" placeholder="شماره سفارش یا توضیح تعمیر"></textarea></label></div><div class="transaction-preview" id="salePreview">ابتدا محصول و تعداد را مشخص کنید.</div><div class="form-actions"><button class="btn primary" type="submit">ثبت خروج / فروش</button></div></form>
+        </section>
+
+        <section id="directView" class="view">
+          <div class="section-head"><div><div class="eyebrow">خارج از موجودی</div><h2>تأمین و مصرف مستقیم</h2><p class="muted">برای قطعه‌ای که از قطعه‌فروش می‌گیرید و همان لحظه روی دستگاه استفاده می‌کنید.</p></div><div class="section-icon orange">⇄</div></div>
+          <div class="info-banner"><span>ⓘ</span><div><strong>بدون شارژ انبار</strong><p>این عملیات موجودی محصولات را تغییر نمی‌دهد؛ فقط هزینه، قطعه‌فروش و تعمیرکار ثبت می‌شوند.</p></div></div>
+          <form id="directForm" class="panel transaction-panel"><div class="transaction-title"><span class="transaction-icon orange">⇄</span><div><h3>ثبت خرید و مصرف هم‌زمان</h3><p class="muted">می‌توانید نام قطعه را آزادانه وارد کنید؛ لازم نیست از قبل در انبار تعریف شده باشد.</p></div></div><div class="form-grid"><label class="span-2">نام قطعه *<input name="item_name" required placeholder="مثلاً سوکت شارژ آیفون ۱۳"></label><label>دسته‌بندی<select name="category_id" id="directCategory"></select></label><label>برند<select name="brand_id" id="directBrand"></select></label><label>تعداد مصرف‌شده *<input type="number" name="quantity" min="0.01" step="0.01" required></label><label>قیمت خرید هر عدد (ریال) *<input type="number" name="purchase_irr_unit_price" id="directPurchasePrice" min="0" step="1" required placeholder="مبلغ پرداخت‌شده به فروشنده"></label><label>قیمت هر عدد هنگام استفاده / فروش (ریال)<input type="number" name="use_irr_unit_price" id="directUsePrice" min="0" step="1" placeholder="خالی = برابر قیمت خرید"></label><label>تعمیرکار *<select name="technician_id" id="directTechnician" required></select></label><label>قطعه‌فروش / تأمین‌کننده *<select name="supplier_id" id="directSupplier" required></select></label><label class="span-2">توضیحات<textarea name="note" rows="2" placeholder="شماره فاکتور یا توضیحات"></textarea></label></div><div class="transaction-preview" id="directPreview">جمع هزینه با نرخ فعلی دلار محاسبه می‌شود.</div><div class="form-actions"><button type="submit" class="btn primary">ثبت تأمین و مصرف</button></div></form>
+        </section>
+
+        <section id="peopleView" class="view">
+          <div class="section-head"><div><div class="eyebrow">مدیریت اطلاعات پایه</div><h2>تعمیرکاران و طرف حساب</h2><p class="muted">افراد و کسب‌وکارهایی که در رسیدها و گزارش‌ها استفاده می‌شوند.</p></div></div>
+          <div class="people-grid">
+            <div class="panel people-card"><div class="panel-heading"><div><h3>تعمیرکار جدید</h3><p class="muted">برای تخصیص مصرف و فروش</p></div><span class="people-icon violet">♙</span></div><form id="technicianForm" class="compact-form"><label>نام تعمیرکار *<input name="name" required placeholder="نام و نام خانوادگی"></label><label>شماره تماس<input name="phone" placeholder="اختیاری"></label><button class="btn primary full" type="submit">＋ افزودن تعمیرکار</button></form><div id="techniciansList" class="mini-list"></div></div>
+            <div class="panel people-card"><div class="panel-heading"><div><h3>قطعه‌فروش / تأمین‌کننده</h3><p class="muted">برای خریدها و مصرف مستقیم</p></div><span class="people-icon orange">⌂</span></div><form id="supplierForm" class="compact-form"><label>نام مجموعه یا فروشنده *<input name="name" required placeholder="نام قطعه‌فروشی"></label><label>نوع طرف حساب<select name="kind"><option value="part_seller">قطعه‌فروش</option><option value="supplier">تأمین‌کننده</option></select></label><label>شماره تماس<input name="phone" placeholder="اختیاری"></label><label>یادداشت<input name="notes" placeholder="آدرس یا توضیح اختیاری"></label><button class="btn primary full" type="submit">＋ افزودن طرف حساب</button></form><div id="suppliersList" class="mini-list"></div></div>
+            <div class="panel people-card"><div class="panel-heading"><div><h3>دسته‌بندی جدید</h3><p class="muted">مثلاً فلت، دوربین یا اسپیکر</p></div><span class="people-icon teal">▤</span></div><form id="categoryForm" class="compact-form"><label>نام دسته‌بندی *<input name="name" required placeholder="نام دسته"></label><button class="btn primary full" type="submit">＋ افزودن دسته</button></form><div id="categoriesList" class="pill-list"></div></div>
+            <div class="panel people-card"><div class="panel-heading"><div><h3>برند جدید</h3><p class="muted">افزودن برندهای بیشتر</p></div><span class="people-icon blue">◈</span></div><form id="brandForm" class="compact-form"><label>نام برند *<input name="name" required placeholder="مثلاً موتورولا"></label><button class="btn primary full" type="submit">＋ افزودن برند</button></form><div id="brandsList" class="pill-list"></div></div>
+          </div>
+        </section>
+
+        <section id="reportsView" class="view">
+          <div class="section-head"><div><div class="eyebrow">تحلیل و خروجی</div><h2>گزارش‌های انبار</h2><p class="muted">بازه شمسی و فیلترهای ترکیبی را انتخاب کنید؛ سپس گزارش را چاپ یا به PDF ذخیره کنید.</p></div><button id="printReportBtn" class="btn primary">⤓ چاپ / ذخیره PDF</button></div>
+          <form id="reportFilterForm" class="panel report-filter no-print"><div class="filter-grid"><label>از تاریخ شمسی<input name="from_jalali" id="reportFrom" placeholder="۱۴۰۵/۰۷/۰۱" inputmode="numeric"></label><label>تا تاریخ شمسی<input name="to_jalali" id="reportTo" placeholder="۱۴۰۵/۰۷/۳۰" inputmode="numeric"></label><label>نوع عملیات<select name="kind" id="reportKind"><option value="">همه عملیات</option><option value="stock_in">ورود به انبار</option><option value="sale">فروش / مصرف انبار</option><option value="direct_use">تأمین و مصرف مستقیم</option></select></label><label>تعمیرکار<select name="technician_id" id="reportTechnician"></select></label><label>برند<select name="brand_id" id="reportBrand"></select></label><label>نوع قطعه / دسته<select name="category_id" id="reportCategory"></select></label><label>قطعه‌فروش / تأمین‌کننده<select name="supplier_id" id="reportSupplier"></select></label></div><div class="filter-actions"><button class="btn primary" type="submit">اعمال فیلتر و ساخت گزارش</button><button class="btn ghost" id="clearReportFilters" type="button">پاک کردن فیلترها</button><span class="muted filter-hint">برای گزارش دقیق، چند فیلتر را هم‌زمان ترکیب کنید.</span></div></form>
+          <div id="reportPrintArea" class="report-print-area"><div class="report-print-header"><div class="brand-mark print-logo">ق</div><div><h2>گزارش انبار قطعه‌یار</h2><p id="reportPrintSubtitle">همه عملیات</p></div><div class="print-generated" id="printGenerated"></div></div><div id="reportSummary" class="report-summary"><div class="summary-box"><small>تعداد عملیات</small><strong>—</strong></div><div class="summary-box"><small>مجموع تعداد قطعات</small><strong>—</strong></div><div class="summary-box"><small>جمع مبلغ دلاری</small><strong>—</strong></div><div class="summary-box"><small>جمع مبلغ ریالی</small><strong>—</strong></div></div><div id="reportTable" class="table-wrap report-table-wrap"><div class="empty-state">برای مشاهده گزارش، فیلترها را اعمال کنید.</div></div><div class="print-footer">گزارش تولیدشده توسط سامانه قطعه‌یار · قیمت خرید و قیمت فروش / استفاده جداگانه ثبت شده‌اند؛ نرخ‌های دلار زمان خرید و عملیات نگهداری می‌شوند.</div></div>
+        </section>
+      </div>
+      <footer class="page-footer no-print"><span>قطعه‌یار — مدیریت قطعات تعمیرات موبایل</span><span>تمام مبالغ ریالی · تاریخ‌های نمایشی شمسی</span></footer>
+    </main>
+  </div>
+  <div id="toastHost" class="toast-host" aria-live="polite"></div>
+
+  <div id="editProductModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="editProductTitle">
+    <div class="modal-card"><div class="form-panel-head"><div><h3 id="editProductTitle">ویرایش محصول</h3><p class="muted">قیمت را به ریال ثبت کنید؛ ارزش دلاری با نرخ روز محاسبه می‌شود.</p></div><button class="icon-button" data-close="editProductModal" aria-label="بستن">×</button></div><form id="editProductForm"><input type="hidden" name="id"><div class="form-grid"><label>نام قطعه *<input name="name" required></label><label>مدل<input name="model"></label><label>دسته‌بندی<select name="category_id" id="editCategory"></select></label><label>برند<select name="brand_id" id="editBrand"></select></label><label>قیمت پایه (ریال)<input name="default_irr_price" id="editProductPrice" type="number" min="0" step="1" required><small id="editProductPriceUsdPreview" class="field-hint">معادل دلاری بر اساس نرخ فعلی</small></label><label>هشدار حداقل موجودی<input name="min_stock" type="number" min="0" step="0.01"></label><label class="span-2">توضیحات<textarea name="details" rows="2"></textarea></label></div><div class="form-actions"><button class="btn primary" type="submit">ذخیره تغییرات</button><button type="button" class="btn danger-outline" id="archiveProductBtn">غیرفعال کردن محصول</button></div></form></div>
+  </div>
+  <div id="changePasswordModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="changePasswordTitle">
+    <div class="modal-card narrow-modal"><div class="form-panel-head"><div><h3 id="changePasswordTitle">تغییر رمز عبور</h3><p class="muted">برای امنیت، رمز یکتا و حداقل ۱۲ کاراکتری انتخاب کنید.</p></div><button class="icon-button" data-close="changePasswordModal" aria-label="بستن">×</button></div><form id="changePasswordForm" class="form-stack"><label>رمز فعلی<input name="currentPassword" type="password" autocomplete="current-password" required></label><label>رمز جدید<input name="newPassword" type="password" autocomplete="new-password" minlength="12" required></label><label>تکرار رمز جدید<input name="confirmPassword" type="password" autocomplete="new-password" minlength="12" required></label><div class="form-actions"><button class="btn primary" type="submit">ذخیره رمز جدید</button></div></form></div>
+  </div>
+</body>
+</html>

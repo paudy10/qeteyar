@@ -1,0 +1,14 @@
+.git
+.gitignore
+.env
+node_modules
+npm-debug.log*
+*.zip
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.db
+*.db-shm
+*.db-wal
+data/*
+!data/.gitkeep

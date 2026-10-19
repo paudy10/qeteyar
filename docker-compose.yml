@@ -1,0 +1,19 @@
+services:
+  ghateh-yar:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ghateh-yar:v1.1
+    container_name: ghateh-yar
+    init: true
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "3002"
+      ADMIN_USER: "Alma"
+      ADMIN_PASSWORD: "AlmaMobile2026!"
+      COOKIE_SECURE: "${COOKIE_SECURE:-false}"
+    volumes:
+      - ./data:/app/data
