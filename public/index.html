@@ -44,9 +44,9 @@
       </nav>
       <div class="sidebar-bottom">
         <div class="currency-mini"><span class="pulse-dot"></span><div><small>نرخ دلار بازار آزاد</small><strong id="sidebarRate">در حال دریافت…</strong></div></div>
-        <button id="changePasswordBtn" class="nav-link" type="button" title="تغییر رمز عبور" aria-label="تغییر رمز عبور"><span class="nav-icon">⌑</span><span>تغییر رمز عبور</span></button>
+        <button id="changePasswordBtn" class="nav-link"><span class="nav-icon">⌑</span><span>تغییر رمز عبور</span></button>
         <button id="logoutBtn" class="nav-link logout"><span class="nav-icon">⇥</span><span>خروج از حساب</span></button>
-        <div class="version-label">قطعه‌یار <span>نسخه ۱.۱.۲</span></div>
+        <div class="version-label">قطعه‌یار <span>نسخه ۱.۱</span></div>
       </div>
     </aside>
 
@@ -103,12 +103,30 @@
 
         <section id="stockinView" class="view">
           <div class="section-head"><div><div class="eyebrow">ورود به انبار</div><h2>شارژ موجودی</h2><p class="muted">ورود تعداد جدید از یک محصول تعریف‌شده به انبار.</p></div><div class="section-icon teal">↙</div></div>
-          <form id="stockInForm" class="panel transaction-panel"><div class="transaction-title"><span class="transaction-icon teal">↙</span><div><h3>ثبت رسید ورود کالا</h3><p class="muted">موجودی محصول پس از ثبت افزایش پیدا می‌کند.</p></div></div><div class="form-grid"><label class="span-2">محصول انباری *<select name="product_id" id="stockProduct" required></select></label><label>تعداد ورودی *<input type="number" name="quantity" min="0.01" step="0.01" required placeholder="مثلاً ۵"></label><label>قیمت خرید هر عدد (ریال)<input type="number" name="irr_unit_price" id="stockPrice" min="0" step="1" placeholder="خالی = قیمت لحظه‌ای محصول"></label><label class="span-2">تأمین‌کننده (اختیاری)<select name="supplier_id" id="stockSupplier"></select></label><label class="span-2">توضیحات<textarea name="note" rows="2" placeholder="شماره فاکتور یا توضیح خرید"></textarea></label></div><div class="transaction-preview" id="stockPreview">ابتدا محصول و قیمت را مشخص کنید.</div><div class="form-actions"><button class="btn primary" type="submit">ثبت شارژ انبار</button></div></form>
+          <form id="stockInForm" class="panel transaction-panel"><div class="transaction-title"><span class="transaction-icon teal">↙</span><div><h3>ثبت رسید ورود کالا</h3><p class="muted">موجودی محصول پس از ثبت افزایش پیدا می‌کند.</p></div></div><div class="form-grid"><label class="span-2">محصول انباری *<input
+    id="stockProductSearch"
+    type="search"
+    autocomplete="off"
+    placeholder="جست‌وجوی نام، مدل، برند یا کد محصول…"
+  >
+  <select name="product_id" id="stockProduct" required></select>
+  <small class="field-hint">
+    ابتدا جست‌وجو کنید، سپس محصول را از فهرست انتخاب کنید.
+  </small></label><label>تعداد ورودی *<input type="number" name="quantity" min="0.01" step="0.01" required placeholder="مثلاً ۵"></label><label>قیمت خرید هر عدد (ریال)<input type="number" name="irr_unit_price" id="stockPrice" min="0" step="1" placeholder="خالی = قیمت لحظه‌ای محصول"></label><label class="span-2">تأمین‌کننده (اختیاری)<select name="supplier_id" id="stockSupplier"></select></label><label class="span-2">توضیحات<textarea name="note" rows="2" placeholder="شماره فاکتور یا توضیح خرید"></textarea></label></div><div class="transaction-preview" id="stockPreview">ابتدا محصول و قیمت را مشخص کنید.</div><div class="form-actions"><button class="btn primary" type="submit">ثبت شارژ انبار</button></div></form>
         </section>
 
         <section id="salesView" class="view">
           <div class="section-head"><div><div class="eyebrow">خروج از موجودی</div><h2>فروش و مصرف انبار</h2><p class="muted">برای هر خروج، تعمیرکار مسئول را مشخص کنید.</p></div><div class="section-icon blue">↗</div></div>
-          <form id="saleForm" class="panel transaction-panel"><div class="transaction-title"><span class="transaction-icon blue">↗</span><div><h3>ثبت فروش / مصرف قطعه</h3><p class="muted">فقط در صورت موجودی کافی ثبت می‌شود و تعداد از انبار کم خواهد شد.</p></div></div><div class="form-grid"><label class="span-2">محصول *<select name="product_id" id="saleProduct" required></select></label><label>تعداد *<input type="number" name="quantity" min="0.01" step="0.01" required placeholder="تعداد مصرف‌شده"></label><label>قیمت هر عدد هنگام فروش / استفاده (ریال)<input type="number" name="irr_unit_price" id="salePrice" min="0" step="1" placeholder="خالی = قیمت لحظه‌ای محصول"></label><label class="span-2">نام تعمیرکار *<select name="technician_id" id="saleTechnician" required></select></label><label class="span-2">توضیحات<textarea name="note" rows="2" placeholder="شماره سفارش یا توضیح تعمیر"></textarea></label></div><div class="transaction-preview" id="salePreview">ابتدا محصول و تعداد را مشخص کنید.</div><div class="form-actions"><button class="btn primary" type="submit">ثبت خروج / فروش</button></div></form>
+          <form id="saleForm" class="panel transaction-panel"><div class="transaction-title"><span class="transaction-icon blue">↗</span><div><h3>ثبت فروش / مصرف قطعه</h3><p class="muted">فقط در صورت موجودی کافی ثبت می‌شود و تعداد از انبار کم خواهد شد.</p></div></div><div class="form-grid"><label class="span-2">محصول *<input
+    id="saleProductSearch"
+    type="search"
+    autocomplete="off"
+    placeholder="جست‌وجوی نام، مدل، برند یا کد محصول…"
+  >
+  <select name="product_id" id="saleProduct" required></select>
+  <small class="field-hint">
+    ابتدا جست‌وجو کنید، سپس محصول را از فهرست انتخاب کنید.
+  </small></label><label>تعداد *<input type="number" name="quantity" min="0.01" step="0.01" required placeholder="تعداد مصرف‌شده"></label><label>قیمت هر عدد هنگام فروش / استفاده (ریال)<input type="number" name="irr_unit_price" id="salePrice" min="0" step="1" placeholder="خالی = قیمت لحظه‌ای محصول"></label><label class="span-2">نام تعمیرکار *<select name="technician_id" id="saleTechnician" required></select></label><label class="span-2">توضیحات<textarea name="note" rows="2" placeholder="شماره سفارش یا توضیح تعمیر"></textarea></label></div><div class="transaction-preview" id="salePreview">ابتدا محصول و تعداد را مشخص کنید.</div><div class="form-actions"><button class="btn primary" type="submit">ثبت خروج / فروش</button></div></form>
         </section>
 
         <section id="directView" class="view">

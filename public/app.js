@@ -146,20 +146,83 @@ async function loadProducts(q = '') {
   state.products = await api(`/api/products${q ? '?q=' + encodeURIComponent(q) : ''}`);
   renderProducts(); refreshProductSelects(); renderLowStock(); updateTransactionPreviews();
 }
+
 function refreshProductSelects() {
-  const stockProducts = state.products.filter(p => p.mode === 'stock');
-  const directProducts = state.products.filter(p => p.mode === 'direct');
-  populateProductSelect($('#stockProduct'), stockProducts, 'انتخاب محصول برای شارژ');
-  populateProductSelect($('#saleProduct'), stockProducts.filter(p => Number(p.stock_qty) > 0), 'انتخاب محصول موجود');
-  // This select is kept as reference context for future direct-use autocomplete; direct-use accepts free text.
-  void directProducts;
+  const stockProducts = state.products.filter(
+    p => p.mode === 'stock'
+  );
+
+  populateProductSelect(
+    $('#stockProduct'),
+    stockProducts,
+    'انتخاب محصول برای شارژ',
+    $('#stockProductSearch')?.value || ''
+  );
+
+  populateProductSelect(
+    $('#saleProduct'),
+    stockProducts.filter(p => Number(p.stock_qty) > 0),
+    'انتخاب محصول موجود',
+    $('#saleProductSearch')?.value || ''
+  );
 }
-function populateProductSelect(el, items, placeholder) {
+
+function populateProductSelect(el, items, placeholder, query = '') {
   if (!el) return;
+
   const current = el.value;
-  el.innerHTML = `<option value="">${escapeHtml(placeholder)}</option>` + items.map(p => `<option value="${p.id}" data-price="${Number(p.default_usd_price)}" data-stock="${Number(p.stock_qty)}">${escapeHtml(productLabel(p))} — موجودی: ${formatNumber(p.stock_qty)}</option>`).join('');
-  if (items.some(x => String(x.id) === current)) el.value = current;
+  const normalizedQuery = String(query)
+    .trim()
+    .toLocaleLowerCase('fa');
+
+  const filtered = normalizedQuery
+    ? items.filter(p =>
+        [
+          p.name,
+          p.model,
+          p.brand_name,
+          p.category_name,
+          p.sku,
+          productLabel(p)
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLocaleLowerCase('fa')
+          .includes(normalizedQuery)
+      )
+    : items;
+
+  const selectedProduct = items.find(
+    p => String(p.id) === String(current)
+  );
+
+  const visibleItems =
+    selectedProduct &&
+    !filtered.some(p => String(p.id) === String(current))
+      ? [selectedProduct, ...filtered]
+      : filtered;
+
+  el.innerHTML =
+    `<option value="">${escapeHtml(placeholder)}${
+      normalizedQuery
+        ? ` (${formatNumber(filtered.length)} نتیجه)`
+        : ''
+    }</option>` +
+    visibleItems.map(p =>
+      `<option value="${p.id}"
+        data-price="${Number(p.default_usd_price)}"
+        data-stock="${Number(p.stock_qty)}">
+        ${escapeHtml(productLabel(p))} — موجودی:
+        ${formatNumber(p.stock_qty)}
+      </option>`
+    ).join('');
+
+  if (items.some(x => String(x.id) === String(current))) {
+    el.value = current;
+  }
 }
+
+
 function activeProduct(productId) { return state.products.find(x => String(x.id) === String(productId)); }
 function renderProducts() {
   const host = $('#productsTable');
@@ -386,8 +449,7 @@ function initEvents() {
     finally { button.disabled = false; }
   });
   $('#logoutBtn').addEventListener('click', async () => { try { await api('/api/logout', { method: 'POST', body: {} }); } catch {} showLogin(); });
-  const openChangePassword = () => $('#changePasswordModal').classList.remove('hidden');
-  $('#changePasswordBtn').addEventListener('click', openChangePassword);
+  $('#changePasswordBtn').addEventListener('click', () => $('#changePasswordModal').classList.remove('hidden'));
   $('#changePasswordForm').addEventListener('submit', async e => {
     e.preventDefault();
     const form = e.currentTarget; const payload = formObject(form);
@@ -414,7 +476,36 @@ function initEvents() {
   $('#archiveProductBtn').addEventListener('click', async () => { const id = $('#editProductForm').elements.id.value; $('#editProductModal').classList.add('hidden'); await archiveProduct(id); });
   $('#refreshRateBtn').addEventListener('click', async () => { const btn = $('#refreshRateBtn'); btn.disabled = true; try { const rate = await api('/api/rate?refresh=1'); setRate(rate); toast(rate.price ? 'نرخ ارز به‌روزرسانی شد.' : rate.warning, rate.price ? 'success' : 'error'); } catch (err) { toast(err.message,'error'); } finally { btn.disabled = false; } });
   ['stockProduct','saleProduct'].forEach(id => $(`#${id}`).addEventListener('change', () => { const price = id === 'stockProduct' ? $('#stockPrice') : $('#salePrice'); price.value = ''; updateTransactionPreviews(); }));
-  ['stockPrice','salePrice','directPurchasePrice','directUsePrice'].forEach(id => $(`#${id}`).addEventListener('input', updateTransactionPreviews));
+
+[
+  ['stockProductSearch', 'stockProduct'],
+  ['saleProductSearch', 'saleProduct']
+].forEach(([searchId, selectId]) => {
+  const searchInput = $(`#${searchId}`);
+  if (!searchInput) return;
+
+  searchInput.addEventListener('input', () => {
+    const select = $(`#${selectId}`);
+    const previousValue = select.value;
+
+    refreshProductSelects();
+
+    if (
+      previousValue &&
+      Array.from(select.options).some(
+        option => option.value === previousValue
+      )
+    ) {
+      select.value = previousValue;
+    } else {
+      select.value = '';
+    }
+
+    updateTransactionPreviews();
+  });
+});
+  
+['stockPrice','salePrice','directPurchasePrice','directUsePrice'].forEach(id => $(`#${id}`).addEventListener('input', updateTransactionPreviews));
   $('#productForm [name="default_irr_price"]').addEventListener('input', updateProductPricePreviews);
   $('#editProductPrice').addEventListener('input', updateProductPricePreviews);
   let priceSearchTimer;
