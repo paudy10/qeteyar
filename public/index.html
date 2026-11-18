@@ -127,6 +127,28 @@
   <small class="field-hint">
     ابتدا جست‌وجو کنید، سپس محصول را از فهرست انتخاب کنید.
   </small></label><label>تعداد *<input type="number" name="quantity" min="0.01" step="0.01" required placeholder="تعداد مصرف‌شده"></label><label>قیمت هر عدد هنگام فروش / استفاده (ریال)<input type="number" name="irr_unit_price" id="salePrice" min="0" step="1" placeholder="خالی = قیمت لحظه‌ای محصول"></label><label class="span-2">نام تعمیرکار *<select name="technician_id" id="saleTechnician" required></select></label><label class="span-2">توضیحات<textarea name="note" rows="2" placeholder="شماره سفارش یا توضیح تعمیر"></textarea></label></div><div class="transaction-preview" id="salePreview">ابتدا محصول و تعداد را مشخص کنید.</div><div class="form-actions"><button class="btn primary" type="submit">ثبت خروج / فروش</button></div></form>
+
+          <form id="returnForm" class="panel transaction-panel">
+            <div class="transaction-title">
+              <span class="transaction-icon teal">↙</span>
+              <div><h3>ثبت مرجوعی کالا به انبار</h3><p class="muted">فروش قبلی را انتخاب کنید؛ کالا با قیمت و نرخ دلار همان روز به موجودی برمی‌گردد.</p></div>
+            </div>
+            <div class="form-grid">
+              <label class="span-2">فروش مرجع *
+                <select name="sale_movement_id" id="returnSaleMovement" required>
+                  <option value="">در حال دریافت فروش‌های قابل مرجوعی…</option>
+                </select>
+              </label>
+              <label>تعداد مرجوعی *
+                <input type="number" name="quantity" min="0.01" step="0.01" required placeholder="تعداد برگشتی">
+              </label>
+              <label class="span-2">توضیحات مرجوعی
+                <textarea name="note" rows="2" placeholder="علت مرجوعی یا توضیح تکمیلی"></textarea>
+              </label>
+            </div>
+            <div class="transaction-preview" id="returnPreview">فروش مرجع را انتخاب کنید.</div>
+            <div class="form-actions"><button class="btn primary" type="submit">ثبت مرجوعی و بازگشت به موجودی</button></div>
+          </form>
         </section>
 
         <section id="directView" class="view">
@@ -147,8 +169,8 @@
 
         <section id="reportsView" class="view">
           <div class="section-head"><div><div class="eyebrow">تحلیل و خروجی</div><h2>گزارش‌های انبار</h2><p class="muted">بازه شمسی و فیلترهای ترکیبی را انتخاب کنید؛ سپس گزارش را چاپ یا به PDF ذخیره کنید.</p></div><button id="printReportBtn" class="btn primary">⤓ چاپ / ذخیره PDF</button></div>
-          <form id="reportFilterForm" class="panel report-filter no-print"><div class="filter-grid"><label>از تاریخ شمسی<input name="from_jalali" id="reportFrom" placeholder="۱۴۰۵/۰۷/۰۱" inputmode="numeric"></label><label>تا تاریخ شمسی<input name="to_jalali" id="reportTo" placeholder="۱۴۰۵/۰۷/۳۰" inputmode="numeric"></label><label>نوع عملیات<select name="kind" id="reportKind"><option value="">همه عملیات</option><option value="stock_in">ورود به انبار</option><option value="sale">فروش / مصرف انبار</option><option value="direct_use">تأمین و مصرف مستقیم</option></select></label><label>تعمیرکار<select name="technician_id" id="reportTechnician"></select></label><label>برند<select name="brand_id" id="reportBrand"></select></label><label>نوع قطعه / دسته<select name="category_id" id="reportCategory"></select></label><label>قطعه‌فروش / تأمین‌کننده<select name="supplier_id" id="reportSupplier"></select></label></div><div class="filter-actions"><button class="btn primary" type="submit">اعمال فیلتر و ساخت گزارش</button><button class="btn ghost" id="clearReportFilters" type="button">پاک کردن فیلترها</button><span class="muted filter-hint">برای گزارش دقیق، چند فیلتر را هم‌زمان ترکیب کنید.</span></div></form>
-          <div id="reportPrintArea" class="report-print-area"><div class="report-print-header"><div class="brand-mark print-logo">ق</div><div><h2>گزارش انبار قطعه‌یار</h2><p id="reportPrintSubtitle">همه عملیات</p></div><div class="print-generated" id="printGenerated"></div></div><div id="reportSummary" class="report-summary"><div class="summary-box"><small>تعداد عملیات</small><strong>—</strong></div><div class="summary-box"><small>مجموع تعداد قطعات</small><strong>—</strong></div><div class="summary-box"><small>جمع مبلغ دلاری</small><strong>—</strong></div><div class="summary-box"><small>جمع مبلغ ریالی</small><strong>—</strong></div></div><div id="reportTable" class="table-wrap report-table-wrap"><div class="empty-state">برای مشاهده گزارش، فیلترها را اعمال کنید.</div></div><div class="print-footer">گزارش تولیدشده توسط سامانه قطعه‌یار · قیمت خرید و قیمت فروش / استفاده جداگانه ثبت شده‌اند؛ نرخ‌های دلار زمان خرید و عملیات نگهداری می‌شوند.</div></div>
+          <form id="reportFilterForm" class="panel report-filter no-print"><div class="filter-grid"><label>از تاریخ شمسی<input name="from_jalali" id="reportFrom" placeholder="۱۴۰۵/۰۷/۰۱" inputmode="numeric"></label><label>تا تاریخ شمسی<input name="to_jalali" id="reportTo" placeholder="۱۴۰۵/۰۷/۳۰" inputmode="numeric"></label><label>نوع عملیات<select name="kind" id="reportKind"><option value="">همه عملیات</option><option value="stock_in">ورود به انبار</option><option value="sale">فروش / مصرف انبار</option><option value="direct_use">تأمین و مصرف مستقیم</option><option value="sale_return">مرجوعی فروش انبار</option></select></label><label>تعمیرکار<select name="technician_id" id="reportTechnician"></select></label><label>برند<select name="brand_id" id="reportBrand"></select></label><label>نوع قطعه / دسته<select name="category_id" id="reportCategory"></select></label><label>قطعه‌فروش / تأمین‌کننده<select name="supplier_id" id="reportSupplier"></select></label></div><div class="filter-actions"><button class="btn primary" type="submit">اعمال فیلتر و ساخت گزارش</button><button class="btn ghost" id="clearReportFilters" type="button">پاک کردن فیلترها</button><span class="muted filter-hint">برای گزارش دقیق، چند فیلتر را هم‌زمان ترکیب کنید.</span></div></form>
+          <div id="reportPrintArea" class="report-print-area"><div class="report-print-header"><div class="brand-mark print-logo">ق</div><div><h2>گزارش انبار قطعه‌یار</h2><p id="reportPrintSubtitle">همه عملیات</p></div><div class="print-generated" id="printGenerated"></div></div><div id="reportSummary" class="report-summary"><div class="summary-box"><small>تعداد عملیات</small><strong>—</strong></div><div class="summary-box"><small>مجموع تعداد قطعات</small><strong>—</strong></div><div class="summary-box"><small>جمع مبلغ دلاری</small><strong>—</strong></div><div class="summary-box"><small>جمع مبلغ ریالی</small><strong>—</strong></div></div><div id="reportTable" class="table-wrap report-table-wrap"><div class="empty-state">برای مشاهده گزارش، فیلترها را اعمال کنید.</div></div><div class="print-footer">گزارش تولیدشده توسط سامانه قطعه‌یار · مرجوعی‌ها با قیمت و نرخ تاریخی فروش مرجع ثبت می‌شوند؛ نرخ هر عملیات در سوابق نگهداری می‌شود.</div></div>
         </section>
       </div>
       <footer class="page-footer no-print"><span>قطعه‌یار — مدیریت قطعات تعمیرات موبایل</span><span>تمام مبالغ ریالی · تاریخ‌های نمایشی شمسی</span></footer>
