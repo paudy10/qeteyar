@@ -14,6 +14,9 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const DATA_DIR = path.join(__dirname, 'data');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
+// نرخ جایگزین وقتی وب‌سرویس در دسترس نیست: ۲۷۰ هزار تومان = ۲٬۷۰۰٬۰۰۰ ریال
+const FALLBACK_RATE_IRR = Number(process.env.FALLBACK_RATE_IRR || 2_700_000);
+
 const db = new DatabaseSync(path.join(DATA_DIR, 'inventory.sqlite'));
 db.exec('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;');
 db.exec(`
@@ -112,6 +115,10 @@ function settingGet(key) { return db.prepare('SELECT value FROM settings WHERE k
 function settingSet(key, value) {
   db.prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(key, String(value));
 }
+function safeRateValue(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : FALLBACK_RATE_IRR;
+}
 
 // Lightweight forward migrations keep existing local databases usable after upgrades.
 function ensureColumn(table, column, definition) {
@@ -162,9 +169,13 @@ if (Number.isFinite(persistedRatePrice) && persistedRatePrice > 0) {
 }
 
 async function getRate(force = false) {
-  if (!force && rateCache && Date.now() - rateCache.fetchedAt < RATE_TTL_MS) return { ...rateCache, stale: Boolean(rateCache.stale) };
+  if (!force && rateCache && Date.now() - rateCache.fetchedAt < RATE_TTL_MS) {
+    return { ...rateCache, stale: Boolean(rateCache.stale) };
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5000);
+
   try {
     const response = await fetch('https://api.priceto.day/v1/latest/irr/usd', {
       headers: { 'Accept': 'application/json', 'User-Agent': 'GhatehYarInventory/1.0' },
@@ -174,25 +185,36 @@ async function getRate(force = false) {
     const data = await response.json();
     const price = Number(data.price);
     if (data.success !== true || !Number.isFinite(price) || price <= 0) throw new Error('Unexpected currency API response');
-    rateCache = { price, sourceTime: data.time || null, fetchedAt: Date.now() };
+
+    rateCache = { price, sourceTime: data.time || null, fetchedAt: Date.now(), stale: false };
     settingSet('last_rate_price', price);
     settingSet('last_rate_time', data.time || nowIso());
     settingSet('last_rate_fetched_at', new Date().toISOString());
-    return { ...rateCache, stale: false };
+    return { ...rateCache };
   } catch (error) {
     const savedPrice = Number(settingGet('last_rate_price'));
-    const savedTime = settingGet('last_rate_time');
-    if (rateCache?.price) {
-      rateCache = { ...rateCache, fetchedAt: Date.now(), stale: true, warning: 'ارتباط با سرویس نرخ ارز برقرار نشد؛ نرخ ذخیره‌شده نمایش داده می‌شود.' };
-      return { ...rateCache };
-    }
     if (Number.isFinite(savedPrice) && savedPrice > 0) {
-      rateCache = { price: savedPrice, sourceTime: savedTime, fetchedAt: Date.now(), stale: true, warning: 'ارتباط با سرویس نرخ ارز برقرار نشد؛ آخرین نرخ ذخیره‌شده نمایش داده می‌شود.' };
-      return { ...rateCache };
+      rateCache = {
+        price: savedPrice,
+        sourceTime: settingGet('last_rate_time'),
+        fetchedAt: Date.now(),
+        stale: true,
+        warning: 'ارتباط با سرویس نرخ ارز برقرار نشد؛ آخرین نرخ ذخیره‌شده نمایش داده می‌شود.'
+      };
+    } else {
+      rateCache = {
+        price: FALLBACK_RATE_IRR,
+        sourceTime: null,
+        fetchedAt: Date.now(),
+        stale: true,
+        fallback: true,
+        warning: `سرویس نرخ ارز در دسترس نیست؛ نرخ جایگزین ${new Intl.NumberFormat('fa-IR').format(FALLBACK_RATE_IRR)} ریال (۲۷۰ هزار تومان) استفاده می‌شود.`
+      };
     }
-    rateCache = { price: null, sourceTime: null, fetchedAt: Date.now(), stale: true, warning: 'سرویس نرخ ارز در دسترس نیست و هنوز نرخ قبلی ذخیره نشده است.' };
     return { ...rateCache };
-  } finally { clearTimeout(timeout); }
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function sendJson(res, status, payload, extraHeaders = {}) {
@@ -270,9 +292,10 @@ function findPerson(id, table, label) {
   return person;
 }
 function recordMovement({ kind, product = null, itemName, categoryId = null, categoryName = '', brandId = null, brandName = '', quantity, usdPrice, rate, technician = null, supplier = null, note = '', purchaseIrrUnitPrice = null, purchaseRate = null, purchaseUsdUnitPrice = null }) {
-  const irrUnit = Number(usdPrice) * Number(rate.price);
+  const safeRate = safeRateValue(rate?.price);
+  const irrUnit = Number(usdPrice) * safeRate;
   const totalIrr = Number(quantity) * irrUnit;
-  const buyRate = Number(purchaseRate?.price || purchaseRate || rate.price);
+  const buyRate = safeRateValue(purchaseRate?.price || purchaseRate || safeRate);
   const buyIrrUnit = purchaseIrrUnitPrice == null ? irrUnit : Number(purchaseIrrUnitPrice);
   const buyUsdUnit = purchaseUsdUnitPrice == null ? (buyRate > 0 ? buyIrrUnit / buyRate : Number(usdPrice)) : Number(purchaseUsdUnitPrice);
   db.prepare(`INSERT INTO movements(
@@ -282,7 +305,7 @@ function recordMovement({ kind, product = null, itemName, categoryId = null, cat
     technician_id,technician_name_snapshot,supplier_id,supplier_name_snapshot,note,created_at,created_date
   ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
     kind, product?.id ?? null, itemName, categoryId, categoryName, brandId, brandName,
-    quantity, usdPrice, rate.price, irrUnit, totalIrr,
+    quantity, usdPrice, safeRate, irrUnit, totalIrr,
     buyIrrUnit, buyRate, buyUsdUnit, Number(quantity) * buyIrrUnit,
     technician?.id ?? null, technician?.name ?? '',
     supplier?.id ?? null, supplier?.name ?? '', note, nowIso(), tehranDate()
@@ -414,12 +437,11 @@ async function apiHandler(req, res, url) {
     const mode = body.mode === 'direct' ? 'direct' : 'stock';
     const inputIrr = positiveNumber(body.default_irr_price, 'قیمت به ریال', true);
     const fx = await getRate();
-    if (!fx?.price) throw Object.assign(new Error('برای تبدیل قیمت ریالی به دلار، نرخ دلار در دسترس نیست.'), { status: 503 });
-    const usd = inputIrr / fx.price;
+    const rateValue = safeRateValue(fx?.price);
+    const usd = inputIrr / rateValue;
     const qty = mode === 'stock' ? positiveNumber(body.stock_qty ?? 0, 'موجودی اولیه', true) : 0;
     const minStock = mode === 'stock' ? positiveNumber(body.min_stock ?? 0, 'حداقل موجودی', true) : 0;
     const sku = `P-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
-    if (qty > 0 && !fx.price) throw Object.assign(new Error('برای ثبت موجودی اولیه نرخ دلار لازم است.'), { status: 503 });
     let productId;
     beginTransaction(() => {
       const info = db.prepare(`INSERT INTO products(sku,name,model,details,category_id,brand_id,mode,default_usd_price,default_irr_price,stock_qty,min_stock,created_at)
@@ -447,8 +469,7 @@ async function apiHandler(req, res, url) {
     if (body.default_irr_price !== undefined) {
       irr = positiveNumber(body.default_irr_price, 'قیمت به ریال', true);
       const fx = await getRate();
-      if (!fx?.price) throw Object.assign(new Error('برای تبدیل قیمت ریالی به دلار، نرخ دلار در دسترس نیست.'), { status: 503 });
-      usd = irr / fx.price;
+      usd = irr / safeRateValue(fx?.price);
     }
     const min = body.min_stock === undefined ? old.min_stock : positiveNumber(body.min_stock, 'حداقل موجودی', true);
     db.prepare('UPDATE products SET name=?,model=?,details=?,category_id=?,brand_id=?,default_usd_price=?,default_irr_price=?,min_stock=? WHERE id=?')
@@ -469,14 +490,14 @@ async function apiHandler(req, res, url) {
     const supplierId = optionalId(body.supplier_id, 'suppliers', 'تأمین‌کننده');
     const supplier = findPerson(supplierId, 'suppliers', 'تأمین‌کننده');
     const rate = await getRate();
-    if (!rate.price) throw Object.assign(new Error('نرخ دلار دریافت نشد؛ تا وصل‌شدن سرویس نمی‌توان عملیات مالی را ثبت کرد.'), { status: 503 });
+    const rateValue = safeRateValue(rate.price);
     const irrPrice = body.irr_unit_price === '' || body.irr_unit_price == null
-      ? Number(product.default_usd_price) * rate.price
+      ? Number(product.default_usd_price) * rateValue
       : positiveNumber(body.irr_unit_price, 'قیمت به ریال', true);
-    const usdPrice = irrPrice / rate.price;
+    const usdPrice = irrPrice / rateValue;
     beginTransaction(() => {
       db.prepare('UPDATE products SET stock_qty=stock_qty+?,default_usd_price=?,default_irr_price=? WHERE id=?').run(quantity, usdPrice, irrPrice, product.id);
-      recordMovement({ kind: 'stock_in', product, itemName: product.name, categoryId: product.category_id, categoryName: product.category_name || '', brandId: product.brand_id, brandName: product.brand_name || '', quantity, usdPrice, rate, purchaseIrrUnitPrice: irrPrice, purchaseRate: rate, supplier, note: optionalText(body.note, 500) });
+      recordMovement({ kind: 'stock_in', product, itemName: product.name, categoryId: product.category_id, categoryName: product.category_name || '', brandId: product.brand_id, brandName: product.brand_name || '', quantity, usdPrice, rate: { ...rate, price: rateValue }, purchaseIrrUnitPrice: irrPrice, purchaseRate: { ...rate, price: rateValue }, supplier, note: optionalText(body.note, 500) });
     });
     return sendJson(res, 201, { ok: true, product: findProduct(product.id), rate });
   }
@@ -491,17 +512,17 @@ async function apiHandler(req, res, url) {
     if (!technicianId) throw Object.assign(new Error('انتخاب تعمیرکار الزامی است.'), { status: 400 });
     const technician = findPerson(technicianId, 'technicians', 'تعمیرکار');
     const rate = await getRate();
-    if (!rate.price) throw Object.assign(new Error('نرخ دلار دریافت نشد؛ تا وصل‌شدن سرویس نمی‌توان عملیات مالی را ثبت کرد.'), { status: 503 });
+    const rateValue = safeRateValue(rate.price);
     const irrPrice = body.irr_unit_price === '' || body.irr_unit_price == null
-      ? Number(product.default_usd_price) * rate.price
+      ? Number(product.default_usd_price) * rateValue
       : positiveNumber(body.irr_unit_price, 'قیمت به ریال', true);
-    const usdPrice = irrPrice / rate.price;
-    const previousCostIrr = Number(product.default_irr_price || (product.default_usd_price * rate.price));
+    const usdPrice = irrPrice / rateValue;
+    const previousCostIrr = Number(product.default_irr_price || (product.default_usd_price * rateValue));
     const previousCostUsd = Number(product.default_usd_price || 0);
-    const previousCostRate = previousCostUsd > 0 && previousCostIrr > 0 ? previousCostIrr / previousCostUsd : rate.price;
+    const previousCostRate = previousCostUsd > 0 && previousCostIrr > 0 ? previousCostIrr / previousCostUsd : rateValue;
     beginTransaction(() => {
       db.prepare('UPDATE products SET stock_qty=stock_qty-? WHERE id=?').run(quantity, product.id);
-      recordMovement({ kind: 'sale', product, itemName: product.name, categoryId: product.category_id, categoryName: product.category_name || '', brandId: product.brand_id, brandName: product.brand_name || '', quantity, usdPrice, rate, purchaseIrrUnitPrice: previousCostIrr, purchaseRate: previousCostRate, purchaseUsdUnitPrice: previousCostUsd, technician, note: optionalText(body.note, 500) });
+      recordMovement({ kind: 'sale', product, itemName: product.name, categoryId: product.category_id, categoryName: product.category_name || '', brandId: product.brand_id, brandName: product.brand_name || '', quantity, usdPrice, rate: { ...rate, price: rateValue }, purchaseIrrUnitPrice: previousCostIrr, purchaseRate: previousCostRate, purchaseUsdUnitPrice: previousCostUsd, technician, note: optionalText(body.note, 500) });
     });
     return sendJson(res, 201, { ok: true, product: findProduct(product.id), rate });
   }
@@ -521,14 +542,14 @@ async function apiHandler(req, res, url) {
     const technician = findPerson(technicianId, 'technicians', 'تعمیرکار');
     const supplier = findPerson(supplierId, 'suppliers', 'قطعه‌فروش یا تأمین‌کننده');
     const rate = await getRate();
-    if (!rate.price) throw Object.assign(new Error('نرخ دلار دریافت نشد؛ تا وصل‌شدن سرویس نمی‌توان عملیات مالی را ثبت کرد.'), { status: 503 });
+    const rateValue = safeRateValue(rate.price);
     const purchaseIrrPrice = positiveNumber(body.purchase_irr_unit_price, 'قیمت خرید به ریال', true);
-    const purchaseUsdPrice = purchaseIrrPrice / rate.price;
+    const purchaseUsdPrice = purchaseIrrPrice / rateValue;
     const useIrrPrice = body.use_irr_unit_price === '' || body.use_irr_unit_price == null
       ? purchaseIrrPrice
       : positiveNumber(body.use_irr_unit_price, 'قیمت استفاده / فروش به ریال', true);
-    const useUsdPrice = useIrrPrice / rate.price;
-    recordMovement({ kind: 'direct_use', itemName, categoryId, categoryName: category?.name || '', brandId, brandName: brand?.name || '', quantity, usdPrice: useUsdPrice, rate, purchaseIrrUnitPrice: purchaseIrrPrice, purchaseRate: rate, purchaseUsdUnitPrice: purchaseUsdPrice, technician, supplier, note: optionalText(body.note, 500) });
+    const useUsdPrice = useIrrPrice / rateValue;
+    recordMovement({ kind: 'direct_use', itemName, categoryId, categoryName: category?.name || '', brandId, brandName: brand?.name || '', quantity, usdPrice: useUsdPrice, rate: { ...rate, price: rateValue }, purchaseIrrUnitPrice: purchaseIrrPrice, purchaseRate: { ...rate, price: rateValue }, purchaseUsdUnitPrice: purchaseUsdPrice, technician, supplier, note: optionalText(body.note, 500) });
     return sendJson(res, 201, { ok: true, rate, purchase_usd_unit_price: purchaseUsdPrice, use_usd_unit_price: useUsdPrice });
   }
 

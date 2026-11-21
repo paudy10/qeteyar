@@ -8,6 +8,13 @@ const jalaliFormatter = new Intl.DateTimeFormat('en-u-ca-persian-nu-latn', { tim
 const jalaliTehranFormatter = new Intl.DateTimeFormat('en-u-ca-persian-nu-latn', { timeZone: 'Asia/Tehran', year: 'numeric', month: 'numeric', day: 'numeric' });
 const state = { username: 'admin', rate: null, refs: { categories: [], brands: [], technicians: [], suppliers: [] }, products: [], priceSearchResults: [], dashboard: null, report: null, activeView: 'dashboard' };
 
+// نرخ جایگزین مطابق سرور: ۲۷۰ هزار تومان = ۲٬۷۰۰٬۰۰۰ ریال
+const FALLBACK_RATE_IRR = 2_700_000;
+function fxRate() {
+  const r = Number(state.rate?.price || 0);
+  return r > 0 ? r : FALLBACK_RATE_IRR;
+}
+
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 }
@@ -94,16 +101,20 @@ function setRate(rate) {
   const sidebar = $('#sidebarRate');
   const top = $('#topRate');
   if (!rate || !rate.price) {
-    sidebar.textContent = 'در دسترس نیست'; top.textContent = '—';
+    sidebar.textContent = 'در دسترس نیست';
+    top.textContent = '—';
     $('#rateWarning').textContent = rate?.warning || 'نرخ دلار در دسترس نیست.';
     $('#rateWarning').classList.remove('hidden');
   } else {
     const value = `${formatRialCompact(rate.price)} ریال`;
-    sidebar.textContent = value; top.textContent = value;
+    sidebar.textContent = value;
+    top.textContent = value;
     if (rate.warning || rate.stale) {
       $('#rateWarning').textContent = rate.warning || 'نرخ ذخیره‌شده نمایش داده می‌شود.';
       $('#rateWarning').classList.remove('hidden');
-    } else $('#rateWarning').classList.add('hidden');
+    } else {
+      $('#rateWarning').classList.add('hidden');
+    }
   }
   updateTransactionPreviews();
   updateProductPricePreviews();
@@ -148,9 +159,7 @@ async function loadProducts(q = '') {
 }
 
 function refreshProductSelects() {
-  const stockProducts = state.products.filter(
-    p => p.mode === 'stock'
-  );
+  const stockProducts = state.products.filter(p => p.mode === 'stock');
 
   populateProductSelect(
     $('#stockProduct'),
@@ -171,49 +180,27 @@ function populateProductSelect(el, items, placeholder, query = '') {
   if (!el) return;
 
   const current = el.value;
-  const normalizedQuery = String(query)
-    .trim()
-    .toLocaleLowerCase('fa');
+  const normalizedQuery = String(query).trim().toLocaleLowerCase('fa');
 
   const filtered = normalizedQuery
     ? items.filter(p =>
-        [
-          p.name,
-          p.model,
-          p.brand_name,
-          p.category_name,
-          p.sku,
-          productLabel(p)
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .toLocaleLowerCase('fa')
-          .includes(normalizedQuery)
+        [p.name, p.model, p.brand_name, p.category_name, p.sku, productLabel(p)]
+          .filter(Boolean).join(' ').toLocaleLowerCase('fa').includes(normalizedQuery)
       )
     : items;
 
-  const selectedProduct = items.find(
-    p => String(p.id) === String(current)
-  );
+  const selectedProduct = items.find(p => String(p.id) === String(current));
 
   const visibleItems =
-    selectedProduct &&
-    !filtered.some(p => String(p.id) === String(current))
+    selectedProduct && !filtered.some(p => String(p.id) === String(current))
       ? [selectedProduct, ...filtered]
       : filtered;
 
   el.innerHTML =
-    `<option value="">${escapeHtml(placeholder)}${
-      normalizedQuery
-        ? ` (${formatNumber(filtered.length)} نتیجه)`
-        : ''
-    }</option>` +
+    `<option value="">${escapeHtml(placeholder)}${normalizedQuery ? ` (${formatNumber(filtered.length)} نتیجه)` : ''}</option>` +
     visibleItems.map(p =>
-      `<option value="${p.id}"
-        data-price="${Number(p.default_usd_price)}"
-        data-stock="${Number(p.stock_qty)}">
-        ${escapeHtml(productLabel(p))} — موجودی:
-        ${formatNumber(p.stock_qty)}
+      `<option value="${p.id}" data-price="${Number(p.default_usd_price)}" data-stock="${Number(p.stock_qty)}">
+        ${escapeHtml(productLabel(p))} — موجودی: ${formatNumber(p.stock_qty)}
       </option>`
     ).join('');
 
@@ -221,7 +208,6 @@ function populateProductSelect(el, items, placeholder, query = '') {
     el.value = current;
   }
 }
-
 
 function activeProduct(productId) { return state.products.find(x => String(x.id) === String(productId)); }
 function renderProducts() {
@@ -232,8 +218,8 @@ function renderProducts() {
   if (!products.length) { host.innerHTML = '<div class="table-empty">محصولی پیدا نشد. از دکمه «محصول جدید» برای تعریف قطعه استفاده کنید.</div>'; return; }
   host.innerHTML = `<table class="data-table"><thead><tr><th>محصول / کد</th><th>دسته و برند</th><th>نوع</th><th>موجودی</th><th>قیمت پایه (ریال)</th><th>معادل دلاری ذخیره‌شده</th><th>ارزش به نرخ روز</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody>${products.map(p => {
     const isLow = p.mode === 'stock' && Number(p.stock_qty) <= Number(p.min_stock);
-    const live = Number(state.rate?.price || 0) * Number(p.default_usd_price || 0);
-    return `<tr><td><div class="primary-cell">${escapeHtml(p.name)}</div><span class="secondary-cell">${escapeHtml(p.model || p.sku)}</span></td><td><div>${escapeHtml(p.category_name || '—')}</div><span class="secondary-cell">${escapeHtml(p.brand_name || 'بدون برند')}</span></td><td><span class="badge ${p.mode}">${p.mode === 'stock' ? 'انباری' : 'مصرف مستقیم'}</span></td><td>${p.mode === 'stock' ? formatNumber(p.stock_qty) : '—'}${p.mode === 'stock' ? `<span class="secondary-cell">${formatNumber(p.min_stock)}</span>` : ''}</td><td>${formatRialCompact(p.default_irr_price || 0)} ریال</td><td>${formatUsd(p.default_usd_price)}</td><td>${state.rate?.price ? formatRialCompact(live) + ' ریال' : '—'}</td><td><span class="badge ${isLow ? 'low' : 'ok'}">${isLow ? 'نیاز به شارژ' : 'عادی'}</span></td><td><div class="row-actions"><button class="mini-action" data-edit-product="${p.id}">ویرایش</button><button class="mini-action danger" data-archive-product="${p.id}">غیرفعال</button></div></td></tr>`;
+    const live = fxRate() * Number(p.default_usd_price || 0);
+    return `<tr><td><div class="primary-cell">${escapeHtml(p.name)}</div><span class="secondary-cell">${escapeHtml(p.model || p.sku)}</span></td><td><div>${escapeHtml(p.category_name || '—')}</div><span class="secondary-cell">${escapeHtml(p.brand_name || 'بدون برند')}</span></td><td><span class="badge ${p.mode}">${p.mode === 'stock' ? 'انباری' : 'مصرف مستقیم'}</span></td><td>${p.mode === 'stock' ? formatNumber(p.stock_qty) : '—'}${p.mode === 'stock' ? `<span class="secondary-cell">${formatNumber(p.min_stock)}</span>` : ''}</td><td>${formatRialCompact(p.default_irr_price || 0)} ریال</td><td>${formatUsd(p.default_usd_price)}</td><td>${formatRialCompact(live)} ریال</td><td><span class="badge ${isLow ? 'low' : 'ok'}">${isLow ? 'نیاز به شارژ' : 'عادی'}</span></td><td><div class="row-actions"><button class="mini-action" data-edit-product="${p.id}">ویرایش</button><button class="mini-action danger" data-archive-product="${p.id}">غیرفعال</button></div></td></tr>`;
   }).join('')}</tbody></table>`;
 }
 function movementKind(kind) {
@@ -285,15 +271,18 @@ function formObject(form) { return Object.fromEntries(new FormData(form).entries
 function resetForm(form) { form.reset(); }
 function productPrice(productId) {
   const p = state.products.find(x => String(x.id) === String(productId));
-  return Number(p?.default_usd_price || 0) * Number(state.rate?.price || 0);
+  return Number(p?.default_usd_price || 0) * fxRate();
 }
 function transactionTotalPreview(quantityInput, priceInput, preview, getDefaultPrice = () => 0, prefix = 'مبلغ') {
   if (!preview) return;
   const qty = Number(quantityInput?.value || 0);
   const rawPrice = priceInput?.value;
   const unitIrr = rawPrice === '' || rawPrice == null ? Number(getDefaultPrice() || 0) : Number(rawPrice || 0);
-  const fx = Number(state.rate?.price || 0);
-  if (!qty || unitIrr < 0 || !fx) { preview.textContent = fx ? 'تعداد را وارد کنید؛ قیمت خالی یعنی استفاده از قیمت لحظه‌ای محصول.' : 'برای محاسبه قیمت، نرخ دلار باید در دسترس باشد.'; return; }
+  const fx = fxRate();
+  if (!qty || unitIrr < 0) {
+    preview.textContent = 'تعداد را وارد کنید؛ قیمت خالی یعنی استفاده از قیمت لحظه‌ای محصول.';
+    return;
+  }
   const usdUnit = unitIrr / fx;
   const usdTotal = qty * usdUnit;
   const rialTotal = qty * unitIrr;
@@ -306,19 +295,19 @@ function updateDirectPreview() {
   const buy = Number($('#directPurchasePrice').value || 0);
   const useRaw = $('#directUsePrice').value;
   const use = useRaw === '' ? buy : Number(useRaw || 0);
-  const fx = Number(state.rate?.price || 0);
-  if (!qty || !fx || !$('#directPurchasePrice').value) {
-    preview.textContent = fx ? 'قیمت خرید و تعداد را وارد کنید تا معادل دلاری و جمع‌ها محاسبه شوند.' : 'نرخ دلار برای محاسبه معادل دلاری در دسترس نیست.';
+  const fx = fxRate();
+  if (!qty || !$('#directPurchasePrice').value) {
+    preview.textContent = 'قیمت خرید و تعداد را وارد کنید تا معادل دلاری و جمع‌ها محاسبه شوند.';
     return;
   }
   preview.innerHTML = `<div><strong>خرید از قطعه‌فروش:</strong> ${formatNumber(qty)} × ${formatRialCompact(buy)} ریال = <strong>${formatRial(qty * buy)}</strong><div class="secondary-cell">معادل خرید: ${formatUsd(buy / fx)} برای هر عدد · جمع ${formatUsd(qty * buy / fx)}</div></div><div class="direct-use-price-preview"><strong>قیمت زمان استفاده / فروش:</strong> ${formatNumber(qty)} × ${formatRialCompact(use)} ریال = <strong>${formatRial(qty * use)}</strong><div class="secondary-cell">معادل زمان استفاده: ${formatUsd(use / fx)} برای هر عدد · نرخ دلار: ${formatRialCompact(fx)} ریال</div></div>`;
 }
 function updateProductPricePreviews() {
-  const fx = Number(state.rate?.price || 0);
+  const fx = fxRate();
   const productPrice = Number($('#productForm [name="default_irr_price"]')?.value || 0);
   const editPrice = Number($('#editProductPrice')?.value || 0);
-  if ($('#productPriceUsdPreview')) $('#productPriceUsdPreview').textContent = fx ? `معادل ذخیره‌شده: ${formatUsd(productPrice / fx)}` : 'برای محاسبه معادل دلاری، نرخ دلار لازم است.';
-  if ($('#editProductPriceUsdPreview')) $('#editProductPriceUsdPreview').textContent = fx ? `معادل ذخیره‌شده: ${formatUsd(editPrice / fx)}` : 'برای محاسبه معادل دلاری، نرخ دلار لازم است.';
+  if ($('#productPriceUsdPreview')) $('#productPriceUsdPreview').textContent = `معادل ذخیره‌شده: ${formatUsd(productPrice / fx)} (نرخ: ${formatRialCompact(fx)} ریال)`;
+  if ($('#editProductPriceUsdPreview')) $('#editProductPriceUsdPreview').textContent = `معادل ذخیره‌شده: ${formatUsd(editPrice / fx)} (نرخ: ${formatRialCompact(fx)} ریال)`;
 }
 function updateTransactionPreviews() {
   const stockProductId = $('#stockProduct')?.value;
@@ -334,11 +323,11 @@ function renderPriceSearchResults() {
   const items = state.priceSearchResults || [];
   $('#priceSearchCount').textContent = `${formatNumber(items.length)} نتیجه`;
   if (!items.length) { host.innerHTML = '<div class="empty-state">محصولی با این مشخصات پیدا نشد. عبارت دیگری را امتحان کنید.</div>'; return; }
-  const fx = Number(state.rate?.price || 0);
+  const fx = fxRate();
   host.innerHTML = `<table class="data-table"><thead><tr><th>قطعه</th><th>برند / دسته</th><th>موجودی</th><th>معادل دلاری</th><th>قیمت روز به ریال</th><th>وضعیت</th></tr></thead><tbody>${items.map(p => {
     const live = Number(p.default_usd_price || 0) * fx;
     const low = p.mode === 'stock' && Number(p.stock_qty) <= Number(p.min_stock);
-    return `<tr><td><div class="primary-cell">${escapeHtml(p.name)}</div><span class="secondary-cell">${escapeHtml([p.model, p.sku].filter(Boolean).join(' · '))}</span></td><td>${escapeHtml(p.brand_name || '—')}<span class="secondary-cell">${escapeHtml(p.category_name || 'بدون دسته')}</span></td><td>${p.mode === 'stock' ? formatNumber(p.stock_qty) : 'مصرف مستقیم'}</td><td>${formatUsd(p.default_usd_price)}</td><td><strong>${fx ? formatRialCompact(live) + ' ریال' : 'نرخ در دسترس نیست'}</strong></td><td><span class="badge ${low ? 'low' : 'ok'}">${low ? 'نیاز به شارژ' : (p.mode === 'direct' ? 'مصرف مستقیم' : 'عادی')}</span></td></tr>`;
+    return `<tr><td><div class="primary-cell">${escapeHtml(p.name)}</div><span class="secondary-cell">${escapeHtml([p.model, p.sku].filter(Boolean).join(' · '))}</span></td><td>${escapeHtml(p.brand_name || '—')}<span class="secondary-cell">${escapeHtml(p.category_name || 'بدون دسته')}</span></td><td>${p.mode === 'stock' ? formatNumber(p.stock_qty) : 'مصرف مستقیم'}</td><td>${formatUsd(p.default_usd_price)}</td><td><strong>${formatRialCompact(live)} ریال</strong></td><td><span class="badge ${low ? 'low' : 'ok'}">${low ? 'نیاز به شارژ' : (p.mode === 'direct' ? 'مصرف مستقیم' : 'عادی')}</span></td></tr>`;
   }).join('')}</tbody></table>`;
 }
 async function searchPrices(q = '') {
@@ -370,7 +359,7 @@ function openEditProduct(id) {
   form.elements.details.value = p.details || '';
   form.elements.category_id.value = p.category_id || '';
   form.elements.brand_id.value = p.brand_id || '';
-  form.elements.default_irr_price.value = p.default_irr_price || Math.round(Number(p.default_usd_price || 0) * Number(state.rate?.price || 0));
+  form.elements.default_irr_price.value = p.default_irr_price || Math.round(Number(p.default_usd_price || 0) * fxRate());
   updateProductPricePreviews();
   form.elements.min_stock.value = p.min_stock;
   $('#editProductModal').classList.remove('hidden');
@@ -477,35 +466,30 @@ function initEvents() {
   $('#refreshRateBtn').addEventListener('click', async () => { const btn = $('#refreshRateBtn'); btn.disabled = true; try { const rate = await api('/api/rate?refresh=1'); setRate(rate); toast(rate.price ? 'نرخ ارز به‌روزرسانی شد.' : rate.warning, rate.price ? 'success' : 'error'); } catch (err) { toast(err.message,'error'); } finally { btn.disabled = false; } });
   ['stockProduct','saleProduct'].forEach(id => $(`#${id}`).addEventListener('change', () => { const price = id === 'stockProduct' ? $('#stockPrice') : $('#salePrice'); price.value = ''; updateTransactionPreviews(); }));
 
-[
-  ['stockProductSearch', 'stockProduct'],
-  ['saleProductSearch', 'saleProduct']
-].forEach(([searchId, selectId]) => {
-  const searchInput = $(`#${searchId}`);
-  if (!searchInput) return;
+  [
+    ['stockProductSearch', 'stockProduct'],
+    ['saleProductSearch', 'saleProduct']
+  ].forEach(([searchId, selectId]) => {
+    const searchInput = $(`#${searchId}`);
+    if (!searchInput) return;
 
-  searchInput.addEventListener('input', () => {
-    const select = $(`#${selectId}`);
-    const previousValue = select.value;
+    searchInput.addEventListener('input', () => {
+      const select = $(`#${selectId}`);
+      const previousValue = select.value;
 
-    refreshProductSelects();
+      refreshProductSelects();
 
-    if (
-      previousValue &&
-      Array.from(select.options).some(
-        option => option.value === previousValue
-      )
-    ) {
-      select.value = previousValue;
-    } else {
-      select.value = '';
-    }
+      if (previousValue && Array.from(select.options).some(option => option.value === previousValue)) {
+        select.value = previousValue;
+      } else {
+        select.value = '';
+      }
 
-    updateTransactionPreviews();
+      updateTransactionPreviews();
+    });
   });
-});
-  
-['stockPrice','salePrice','directPurchasePrice','directUsePrice'].forEach(id => $(`#${id}`).addEventListener('input', updateTransactionPreviews));
+
+  ['stockPrice','salePrice','directPurchasePrice','directUsePrice'].forEach(id => $(`#${id}`).addEventListener('input', updateTransactionPreviews));
   $('#productForm [name="default_irr_price"]').addEventListener('input', updateProductPricePreviews);
   $('#editProductPrice').addEventListener('input', updateProductPricePreviews);
   let priceSearchTimer;
